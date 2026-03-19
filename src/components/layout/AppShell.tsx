@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Header } from '@/components/layout/Header';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { MobileNav } from '@/components/layout/MobileNav';
 import { ThemeProvider } from '@/components/theme-provider';
-import { cn } from '@/lib/design-system';
+// No layout imports from lib/design-system needed here
 
 export function AppShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false);

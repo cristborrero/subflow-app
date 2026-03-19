@@ -1,10 +1,9 @@
-import React from 'react';
 import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
 import { Sun, Moon, Menu, X } from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
 import { NotificationDropdown } from './NotificationDropdown';
-import { cn } from '@/lib/design-system';
+import { useAuthStore } from '@/store/authStore';
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -13,6 +12,17 @@ interface HeaderProps {
 
 export function Header({ onMenuClick, isSidebarOpen }: HeaderProps) {
   const { theme, setTheme } = useTheme();
+  const { user } = useAuthStore();
+  
+  const getInitials = () => {
+    const fullName = user?.user_metadata?.full_name || user?.email || 'User';
+    return fullName
+      .split(' ')
+      .map((n: string) => n[0])
+      .join('')
+      .toUpperCase()
+      .substring(0, 2);
+  };
 
   return (
     <header className="fixed top-0 left-0 right-0 h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 z-40">
@@ -56,9 +66,9 @@ export function Header({ onMenuClick, isSidebarOpen }: HeaderProps) {
             <span className="sr-only">Toggle theme</span>
           </Button>
 
-          {/* User avatar placeholder */}
+          {/* User avatar dynamic initials */}
           <div className="h-9 w-9 rounded-full bg-gradient-to-br from-primary-400 to-accent-400 flex items-center justify-center text-white font-medium text-sm">
-            JD
+            {getInitials()}
           </div>
         </div>
       </div>
