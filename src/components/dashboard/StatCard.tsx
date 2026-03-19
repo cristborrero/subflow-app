@@ -1,7 +1,5 @@
 import { motion } from 'framer-motion';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 import { cn, formatCurrency } from '@/lib/design-system';
 import {
   TrendingUp,
@@ -84,7 +82,7 @@ export function StatCard({
                   )}
                 >
                   {isPositive && '+'}
-                  {change}%
+                  {Math.round(change || 0)}%
                 </span>
                 <span className="text-gray-500 dark:text-gray-400 ml-1">
                   {changeLabel}
