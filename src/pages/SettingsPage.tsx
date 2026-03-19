@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuthStore } from '@/store/authStore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
-import { formatCurrency } from '@/lib/design-system';
+
 import {
   Sun,
   Moon,
@@ -203,7 +203,7 @@ export function SettingsPage() {
                     <Input 
                       placeholder="Full Name" 
                       value={fullName} 
-                      onChange={(e) => setFullName(e.target.value)} 
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFullName(e.target.value)} 
                     />
                     <Button 
                       onClick={handleUpdateProfile} 
@@ -247,13 +247,13 @@ export function SettingsPage() {
                       type="password" 
                       placeholder="New Password" 
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
                     />
                     <Input 
                       type="password" 
                       placeholder="Confirm New Password" 
                       value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfirmPassword(e.target.value)}
                     />
                     <Button 
                       onClick={handleUpdatePassword} 

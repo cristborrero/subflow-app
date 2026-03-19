@@ -90,7 +90,7 @@ export function SubscriptionsPage() {
           <Input
             placeholder="Search subscriptions..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
             className="pl-10 bg-white dark:bg-[#112d4e] border-slate-200 dark:border-slate-800 rounded-lg shadow-sm focus:ring-[#635bff] focus:border-[#635bff] transition-colors"
           />
         </div>

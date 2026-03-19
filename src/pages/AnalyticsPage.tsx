@@ -1,46 +1,90 @@
-import React from 'react';
 import { StatCard, statPresets } from '@/components/dashboard/StatCard';
 import { TrendChart } from '@/components/charts/ExpenseChart';
 import { CategoryDonutChart } from '@/components/charts/ExpenseChart';
 
+import { useSubscriptions } from '@/hooks/useSubscriptions';
+
 export function AnalyticsPage() {
-  // Mock data for analytics
-  const mockMonthlyTrend = [
-    { month: 'Jan', amount: 234.5 },
-    { month: 'Feb', amount: 267.8 },
-    { month: 'Mar', amount: 245.2 },
-    { month: 'Apr', amount: 289.9 },
-    { month: 'May', amount: 312.4 },
-    { month: 'Jun', amount: 298.7 },
-    { month: 'Jul', amount: 324.1 },
-  ];
+  const { data: subscriptions } = useSubscriptions();
+  const safeSubscriptions = subscriptions || [];
+  const activeSubs = safeSubscriptions.filter((s) => s.is_active);
 
-  const mockCategoryBreakdown = [
-    { name: 'Entertainment', amount: 85.99, color: '#EC4899' },
-    { name: 'Music', amount: 20.98, color: '#F97316' },
-    { name: 'Productivity', amount: 114.98, color: '#3B82F6' },
-    { name: 'Development', amount: 49.99, color: '#10B981' },
-    { name: 'Health', amount: 49.99, color: '#F59E0B' },
-    { name: 'Other', amount: 20.0, color: '#6B7280' },
-  ];
+  // Dynamic Monthly Data Projection based on active subscriptions
+  const dynamicMonthlyData = Array.from({ length: 6 }).map((_, i) => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + i);
+    return { month: d.toLocaleString('default', { month: 'short' }), amount: 0, date: d };
+  });
 
-  const totalSpending = mockMonthlyTrend.reduce((sum, month) => sum + month.amount, 0);
-  const activeSubscriptions = 6;
-  const nextPayment = { amount: 54.99, daysUntil: 2 };
-  const potentialSavings = 45.99;
+  const categoryTotals: Record<string, number> = {};
+
+  activeSubs.forEach((sub) => {
+    const subDate = new Date(sub.next_billing_date);
+    
+    // Accumulate total by category
+    const cat = sub.category || 'Other';
+    const amount = Number(sub.amount);
+    
+    let monthlyEquivalent = amount;
+    if (sub.billing_cycle === 'yearly') monthlyEquivalent = amount / 12;
+    if (sub.billing_cycle === 'weekly') monthlyEquivalent = amount * 4.33;
+
+    categoryTotals[cat] = (categoryTotals[cat] || 0) + monthlyEquivalent;
+
+    // Monthly projection
+    dynamicMonthlyData.forEach((m) => {
+      if (sub.billing_cycle === 'monthly') {
+        m.amount += amount;
+      } else if (
+        sub.billing_cycle === 'yearly' &&
+        subDate.getMonth() === m.date.getMonth() &&
+        subDate.getFullYear() === m.date.getFullYear()
+      ) {
+        m.amount += amount;
+      } else if (sub.billing_cycle === 'weekly') {
+        m.amount += amount * 4.33;
+      }
+    });
+  });
+
+  const CATEGORY_COLORS: Record<string, string> = {
+    Entertainment: '#EC4899',
+    Visual: '#F97316',
+    Productivity: '#3B82F6',
+    Development: '#10B981',
+    Health: '#F59E0B',
+    Other: '#6B7280',
+    Utility: '#8B5CF6',
+  };
+
+  const dynamicCategoryBreakdown = Object.entries(categoryTotals)
+    .map(([name, value]) => ({
+      name,
+      value,
+      color: CATEGORY_COLORS[name as string] || CATEGORY_COLORS['Other'],
+    }))
+    .filter((c) => c.value > 0);
+
+  const totalSpending = activeSubs.reduce((sum, sub) => sum + sub.amount, 0);
+  
+  const upcomingSubscriptions = [...activeSubs].sort(
+    (a, b) => new Date(a.next_billing_date).getTime() - new Date(b.next_billing_date).getTime()
+  );
+
+  const nextPayment = upcomingSubscriptions[0];
 
   const stats = [
-    statPresets.totalSpending(totalSpending, 8.2),
-    statPresets.activeSubscriptions(activeSubscriptions, -2),
+    statPresets.totalSpending(totalSpending, 0),
+    statPresets.activeSubscriptions(activeSubs.length, 0),
     ...(nextPayment
       ? [
           statPresets.nextPayment(
             nextPayment.amount,
-            nextPayment.daysUntil
+            Math.max(0, Math.ceil((new Date(nextPayment.next_billing_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
           ),
         ]
       : []),
-    statPresets.potentialSavings(potentialSavings),
+    statPresets.potentialSavings(0),
   ];
 
   return (
@@ -71,7 +115,7 @@ export function AnalyticsPage() {
           <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">
             Spending Trend
           </h2>
-          <TrendChart data={mockMonthlyTrend} showForecast={false} />
+          <TrendChart data={dynamicMonthlyData} showForecast={false} />
         </div>
 
         {/* Category Breakdown */}
@@ -79,7 +123,7 @@ export function AnalyticsPage() {
           <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">
             Spending by Category
           </h2>
-          <CategoryDonutChart data={mockCategoryBreakdown} />
+          <CategoryDonutChart data={dynamicCategoryBreakdown} />
         </div>
       </div>
 
@@ -90,53 +134,47 @@ export function AnalyticsPage() {
             Key Insights
           </h2>
           <div className="space-y-4">
-            <div className="flex items-start gap-3">
-              <div className="flex-shrink-0 h-8 w-8 bg-primary-100 dark:bg-primary-900/30 rounded-lg flex items-center justify-center text-primary-600 dark:text-primary-400">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
+            {activeSubs.length === 0 ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                You have no active subscriptions. Add some to get personalized insights!
+              </p>
+            ) : null}
+            
+            {dynamicCategoryBreakdown.length > 0 && (
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 h-8 w-8 bg-primary-100 dark:bg-primary-900/30 rounded-lg flex items-center justify-center text-primary-600 dark:text-primary-400">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="font-medium text-gray-900 dark:text-gray-100">
+                    You're spending most on {dynamicCategoryBreakdown.sort((a, b) => b.value - a.value)[0]?.name}
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Consider reviewing these subscriptions for potential savings
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-medium text-gray-900 dark:text-gray-100">
-                  You're spending most on productivity tools
-                </h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Consider reviewing your development subscriptions for potential savings
-                </p>
+            )}
+            
+            {safeSubscriptions.filter(s => !s.is_active).length > 0 && (
+              <div className="flex items-start gap-3 mt-4">
+                <div className="flex-shrink-0 h-8 w-8 bg-primary-100 dark:bg-primary-900/30 rounded-lg flex items-center justify-center text-primary-600 dark:text-primary-400">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 12c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="font-medium text-gray-900 dark:text-gray-100">
+                    Good job cutting costs
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    You have successfully cancelled {safeSubscriptions.filter(s => !s.is_active).length} subscriptions.
+                  </p>
+                </div>
               </div>
-            </div>
-
-            <div className="flex items-start gap-3 mt-4">
-              <div className="flex-shrink-0 h-8 w-8 bg-primary-100 dark:bg-primary-900/30 rounded-lg flex items-center justify-center text-primary-600 dark:text-primary-400">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 1118 0z" />
-                </svg>
-              </div>
-              <div>
-                <h3 className="font-medium text-gray-900 dark:text-gray-100">
-                  Your spending has increased this month
-                </h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Up 8.2% from last month - consider setting a budget alert
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3 mt-4">
-              <div className="flex-shrink-0 h-8 w-8 bg-primary-100 dark:bg-primary-900/30 rounded-lg flex items-center justify-center text-primary-600 dark:text-primary-400">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 12c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" />
-                </svg>
-              </div>
-              <div>
-                <h3 className="font-medium text-gray-900 dark:text-gray-100">
-                  You have unused subscriptions
-                </h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Consider cancelling 2 subscriptions to save $45.99/month
-                </p>
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </div>

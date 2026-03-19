@@ -1,4 +1,3 @@
-import React from 'react';
 import { motion } from 'framer-motion';
 import { StatCard, statPresets } from '@/components/dashboard/StatCard';
 import { AnimatedBarChart } from '@/components/charts/ExpenseChart';
@@ -8,16 +7,7 @@ import { Plus, Loader2 } from 'lucide-react';
 import { useSubscriptions } from '@/hooks/useSubscriptions';
 import { Link } from 'react-router-dom';
 
-// Mock data untuk visualización charts (can be made real later by aggregating past payments)
-const mockMonthlyData = [
-  { month: 'Jan', amount: 234.5 },
-  { month: 'Feb', amount: 267.8 },
-  { month: 'Mar', amount: 245.2 },
-  { month: 'Apr', amount: 289.9 },
-  { month: 'May', amount: 312.4 },
-  { month: 'Jun', amount: 298.7 },
-  { month: 'Jul', amount: 324.1 },
-];
+// Projected monthly cost calculation is built inside the component
 
 export function DashboardPage() {
   const { data: subscriptions, isLoading, isError } = useSubscriptions();
@@ -41,26 +31,45 @@ export function DashboardPage() {
   const safeSubscriptions = subscriptions || [];
 
   // Calculate derived data
-  const totalSpending = safeSubscriptions.filter(s => s.is_active).reduce((sum, sub) => sum + sub.amount, 0);
+  const activeSubs = safeSubscriptions.filter(s => s.is_active);
+  const totalSpending = activeSubs.reduce((sum, sub) => sum + sub.amount, 0);
   
-  const upcomingSubscriptions = safeSubscriptions
-    .filter((s) => s.is_active)
+  const upcomingSubscriptions = [...activeSubs]
     .sort((a, b) => new Date(a.next_billing_date).getTime() - new Date(b.next_billing_date).getTime());
 
   const nextPayment = upcomingSubscriptions[0];
 
+  const dynamicMonthlyData = Array.from({ length: 6 }).map((_, i) => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + i);
+    return { month: d.toLocaleString('default', { month: 'short' }), amount: 0, date: d };
+  });
+
+  activeSubs.forEach(sub => {
+    const subDate = new Date(sub.next_billing_date);
+    dynamicMonthlyData.forEach(m => {
+      if (sub.billing_cycle === 'monthly') {
+        m.amount += Number(sub.amount);
+      } else if (sub.billing_cycle === 'yearly' && subDate.getMonth() === m.date.getMonth() && subDate.getFullYear() === m.date.getFullYear()) {
+        m.amount += Number(sub.amount);
+      } else if (sub.billing_cycle === 'weekly') {
+        m.amount += Number(sub.amount) * 4.33;
+      }
+    });
+  });
+
   const stats = [
-    statPresets.totalSpending(totalSpending, 12.5), // The 12.5% is mock MoM growth
-    statPresets.activeSubscriptions(safeSubscriptions.filter(s => s.is_active).length, 2),
+    statPresets.totalSpending(totalSpending), 
+    statPresets.activeSubscriptions(activeSubs.length),
     ...(nextPayment
       ? [
           statPresets.nextPayment(
             nextPayment.amount,
-            Math.ceil((new Date(nextPayment.next_billing_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+            Math.max(0, Math.ceil((new Date(nextPayment.next_billing_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
           ),
         ]
       : []),
-    statPresets.potentialSavings(45.99), // Mock savings AI insight
+    statPresets.potentialSavings(0),
   ];
 
   const container = {
@@ -117,7 +126,7 @@ export function DashboardPage() {
             <h2 className="text-xl font-semibold mb-4 text-slate-900 dark:text-white">
               Monthly Spending
             </h2>
-            <AnimatedBarChart data={mockMonthlyData} />
+            <AnimatedBarChart data={dynamicMonthlyData} />
           </div>
         </div>
 
@@ -157,7 +166,7 @@ export function DashboardPage() {
           <div className="bg-gradient-to-br from-[#635bff] to-[#4f46e5] rounded-xl p-6 text-white shadow-md">
             <h2 className="text-xl font-semibold mb-2">💰 Save More</h2>
             <p className="text-indigo-100 mb-4 opacity-90">
-              You could save $45.99/month by cancelling unused subscriptions.
+              Review your subscriptions, there might be options to cancel unused ones and save more money.
             </p>
             <Link to="/subscriptions">
               <Button className="w-full bg-white text-[#635bff] hover:bg-slate-50 border-0 font-semibold transition-colors">
